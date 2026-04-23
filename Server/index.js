@@ -7,14 +7,14 @@ const app = express()
 app.use(bodyParser.json())
 
 // Discord RPC
-const clientId = "1446922291207344189"   // seu client ID
+const clientId = "1446922291207344189"   // your client ID
 RPC.register(clientId)
 const rpc = new RPC.Client({ transport: 'ipc' })
 
-// Sua API KEY da OMDb
+// Your OMDb API KEY
 const OMDB_KEY = "6ea6cda0"
 
-// ---------- Função para pegar nome da série ----------
+// ---------- Function to get series name ----------
 async function getTitleFromIMDB(id) {
     try {
         const res = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_KEY}&i=${id}`)
@@ -26,41 +26,41 @@ async function getTitleFromIMDB(id) {
 
         return id // fallback
     } catch (err) {
-        console.log("Erro OMDb:", err)
+        console.log("OMDb Error:", err)
         return id
     }
 }
 
-// ---------- Função para atualizar Discord RPC ----------
+// ---------- Function to update Discord RPC ----------
 async function updateRPC(data) {
-    console.log("Recebido do Stremio:", data)
+    console.log("Received from Stremio:", data)
 
     const [imdb, season, episode] = data.id.split(':')
 
     const title = await getTitleFromIMDB(imdb)
 
     rpc.setActivity({
-        details: `Assistindo: ${title}`,
-        state: `Temporada ${season} • Episódio ${episode}`,
+        details: `Watching: ${title}`,
+        state: `Season ${season} • Episode ${episode}`,
         largeImageKey: "stremio",
         largeImageText: "Stremio",
         startTimestamp: Math.floor(data.timestamp / 1000)
     })
 
-    console.log("RPC atualizado!")
+    console.log("RPC updated!")
 }
 
-// ---------- Endpoint para o addon ----------
+// ---------- Endpoint for the addon ----------
 app.post('/stremio-event', async (req, res) => {
     const data = req.body
     updateRPC(data)
     res.json({ ok: true })
 })
 
-// ---------- Iniciar servidor ----------
+// ---------- Start server ----------
 rpc.on("ready", () => {
-    console.log("✔ Discord RPC conectado!")
-    app.listen(41555, () => console.log("✔ Servidor ouvindo em http://localhost:41555"))
+    console.log("✔ Discord RPC connected!")
+    app.listen(41555, () => console.log("✔ Server listening on http://localhost:41555"))
 })
 
 rpc.login({ clientId }).catch(console.error)

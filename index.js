@@ -6,7 +6,7 @@ const builder = new addonBuilder({
     id: "org.bryan.discordrpc",
     version: "1.0.0",
     name: "Discord RPC Sync",
-    description: "Envia informações do Stremio para o Discord RPC.",
+    description: "Sends Stremio information to Discord RPC.",
     
     catalogs: [],
     resources: ["stream"],
@@ -32,5 +32,4 @@ builder.defineStreamHandler(async (args) => {
 
 serveHTTP(builder.getInterface(), { port: 7000 });
 
-console.log("Addon rodando: http://localhost:7000/manifest.json");
-
+console.log("Addon running: http://localhost:7000/manifest.json");
