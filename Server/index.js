@@ -2,17 +2,18 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const fetch = require('node-fetch')
 const RPC = require('discord-rpc')
+require('dotenv').config({ path: require('path').join(__dirname, '.env') })
 
 const app = express()
 app.use(bodyParser.json())
 
 // Discord RPC
-const clientId = "1446922291207344189"   // your client ID
+const clientId = process.env.clientID
 RPC.register(clientId)
 const rpc = new RPC.Client({ transport: 'ipc' })
 
 // Your OMDb API KEY
-const OMDB_KEY = "6ea6cda0"
+const OMDB_KEY = process.env.OMDB_KEY
 
 // ---------- Function to get series name ----------
 async function getTitleFromIMDB(id) {

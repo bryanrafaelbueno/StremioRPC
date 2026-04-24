@@ -5,9 +5,9 @@ const fetch = (...args) =>
 const builder = new addonBuilder({
     id: "org.bryan.discordrpc",
     version: "1.0.0",
-    name: "Discord RPC Sync",
+    name: "StremioRPC",
     description: "Sends Stremio information to Discord RPC.",
-    
+
     catalogs: [],
     resources: ["stream"],
     types: ["movie", "series"],
@@ -25,7 +25,7 @@ builder.defineStreamHandler(async (args) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(info)
-    }).catch(() => {});
+    }).catch(() => { });
 
     return Promise.resolve({ streams: [] });
 });
