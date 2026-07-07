@@ -51,8 +51,8 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.deb
-            dist/*.exe
-            dist/*-unpacked/**
+            dist/*Setup*.exe
+            dist/*setup*.exe
           if-no-files-found: warn
 
   release:
@@ -75,6 +75,7 @@ jobs:
           files: |
             release-artifacts/**/*.AppImage
             release-artifacts/**/*.deb
-            release-artifacts/**/*.exe
+            release-artifacts/**/*Setup*.exe
+            release-artifacts/**/*setup*.exe
           draft: false
           prerelease: false
