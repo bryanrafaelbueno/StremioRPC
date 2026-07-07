@@ -1,2 +1,11 @@
 node_modules/
+dist/
+.vscode/
+.idea/
+.env
+.env.*
+!.env.example
 Server/.env
+.DS_Store
+Thumbs.db
+*.log
