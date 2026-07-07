@@ -38,6 +38,8 @@ jobs:
           npm install --no-audit --no-fund
 
       - name: Build app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ${{ matrix.build_cmd }}
 
       - name: Upload build artifacts
@@ -67,8 +69,6 @@ jobs:
 
       - name: Create release
         uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
             release-artifacts/**/*.AppImage
