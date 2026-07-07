@@ -40,6 +40,8 @@ jobs:
       - name: Build app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          EP_DONT_SIGN: true
         run: ${{ matrix.build_cmd }}
 
       - name: Upload build artifacts
