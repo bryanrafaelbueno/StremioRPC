@@ -15,6 +15,8 @@ let rpcStatusMessage = 'Disconnected';
 let currentNowPlaying = null;
 let lastConnectedClientId = '';
 let addonServer = null;
+let rpcRetryTimer = null;
+let rpcRetryClientId = '';
 
 // Determine hidden startup
 let startHidden = process.argv.includes('--hidden') || process.argv.includes('-h');
@@ -120,6 +122,23 @@ function broadcastStatus() {
 }
 
 // Discord RPC methods
+function scheduleRPCReconnect(clientId) {
+    if (!clientId) return;
+
+    rpcRetryClientId = clientId;
+
+    if (rpcRetryTimer) {
+        clearTimeout(rpcRetryTimer);
+    }
+
+    rpcRetryTimer = setTimeout(() => {
+        rpcRetryTimer = null;
+        if (!isRpcConnected && rpcRetryClientId) {
+            connectRPC(rpcRetryClientId);
+        }
+    }, 5000);
+}
+
 async function connectRPC(clientId) {
     await disconnectRPC();
 
@@ -129,6 +148,11 @@ async function connectRPC(clientId) {
         return;
     }
 
+    if (rpcRetryTimer) {
+        clearTimeout(rpcRetryTimer);
+        rpcRetryTimer = null;
+    }
+
     try {
         RPC.register(clientId);
         rpcClient = new RPC.Client({ transport: 'ipc' });
@@ -136,6 +160,7 @@ async function connectRPC(clientId) {
         rpcClient.on('ready', () => {
             isRpcConnected = true;
             rpcStatusMessage = 'Connected';
+            rpcRetryClientId = '';
             console.log('Discord RPC connected successfully!');
             broadcastStatus();
         });
@@ -143,6 +168,7 @@ async function connectRPC(clientId) {
         rpcClient.on('disconnected', () => {
             isRpcConnected = false;
             rpcStatusMessage = 'Disconnected';
+            scheduleRPCReconnect(clientId);
             console.log('Discord RPC disconnected');
             broadcastStatus();
         });
@@ -155,6 +181,7 @@ async function connectRPC(clientId) {
         console.error('Discord RPC login failed:', err);
         isRpcConnected = false;
         rpcStatusMessage = 'Connection failed';
+        scheduleRPCReconnect(clientId);
         broadcastStatus();
     }
 }
@@ -170,6 +197,12 @@ async function disconnectRPC() {
     }
     isRpcConnected = false;
     rpcStatusMessage = 'Disconnected';
+
+    if (rpcRetryTimer) {
+        clearTimeout(rpcRetryTimer);
+        rpcRetryTimer = null;
+    }
+    rpcRetryClientId = '';
 }
 
 async function updateRPC(data) {
