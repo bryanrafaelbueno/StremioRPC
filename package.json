@@ -33,6 +33,7 @@
       "index.html",
       "renderer.js",
       "preload.js",
+      "metadata.js",
       "Assets/**/*"
     ],
     "win": {

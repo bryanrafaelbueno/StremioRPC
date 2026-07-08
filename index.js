@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { addonBuilder, serveHTTP } = require("stremio-addon-sdk");
 const RPC = require('discord-rpc');
+const { resolveMediaTitle } = require('./metadata');
 
 // App state
 let mainWindow = null;
@@ -98,26 +99,10 @@ Terminal=false
     }
 }
 
-// OMDb helper
-async function getTitleFromIMDB(id) {
+// Media title helper
+async function getTitleFromIMDB(id, type = 'movie') {
     const config = loadConfig();
-    const omdbKey = config.omdbApiKey;
-    if (!omdbKey) {
-        console.log("No OMDb API Key set, returning IMDb ID:", id);
-        return id;
-    }
-    try {
-        const res = await fetch(`http://www.omdbapi.com/?apikey=${omdbKey}&i=${id}`);
-        const data = await res.json();
-
-        if (data && data.Title) {
-            return data.Title;
-        }
-        return id;
-    } catch (err) {
-        console.warn("OMDb fetch failed:", err);
-        return id;
-    }
+    return resolveMediaTitle(id, type, config);
 }
 
 // Send updates to the UI
@@ -195,7 +180,7 @@ async function updateRPC(data) {
     const season = parts[1];
     const episode = parts[2];
 
-    const title = await getTitleFromIMDB(imdb);
+    const title = await getTitleFromIMDB(imdb, data.type || 'movie');
 
     const activity = {
         details: `Watching: ${title}`,
