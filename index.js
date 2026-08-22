@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Tray, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
 const { addonBuilder, serveHTTP } = require("stremio-addon-sdk");
 const RPC = require('discord-rpc');
 const { resolveMediaTitle } = require('./metadata');
@@ -17,6 +18,13 @@ let lastConnectedClientId = '';
 let addonServer = null;
 let rpcRetryTimer = null;
 let rpcRetryClientId = '';
+
+// Playback monitoring state
+let playbackMonitorInterval = null;
+let lastActivityTimestamp = null;
+let stremioNotFoundCount = 0;
+const ACTIVITY_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hour safety net
+const MONITOR_POLL_MS = 15 * 1000; // check every 15 seconds
 
 // Determine hidden startup
 let startHidden = process.argv.includes('--hidden') || process.argv.includes('-h');
@@ -118,6 +126,69 @@ function broadcastStatus() {
             nowPlaying: currentNowPlaying
         };
         mainWindow.webContents.send('status-change', status);
+    }
+}
+
+// Playback monitoring (detect when Stremio closes)
+function isStremioRunning() {
+    return new Promise((resolve) => {
+        const req = http.get('http://localhost:11470', (res) => {
+            resolve(true);
+            res.resume();
+        });
+        req.on('error', () => {
+            resolve(false);
+        });
+        req.setTimeout(2000, () => {
+            req.destroy();
+            resolve(false);
+        });
+    });
+}
+
+async function clearActivity() {
+    if (rpcClient && isRpcConnected) {
+        try {
+            await rpcClient.clearActivity();
+            console.log('Discord activity cleared');
+        } catch (err) {
+            console.error('Failed to clear Discord activity:', err);
+        }
+    }
+    currentNowPlaying = null;
+    lastActivityTimestamp = null;
+    broadcastStatus();
+}
+
+function startPlaybackMonitor() {
+    if (playbackMonitorInterval) return;
+
+    playbackMonitorInterval = setInterval(async () => {
+        if (!currentNowPlaying) return;
+
+        const stremioRunning = await isStremioRunning();
+        if (!stremioRunning) {
+            stremioNotFoundCount++;
+            if (stremioNotFoundCount >= 4) {
+                console.log('Stremio is no longer running, clearing Discord activity');
+                stremioNotFoundCount = 0;
+                await clearActivity();
+            }
+            return;
+        }
+        stremioNotFoundCount = 0;
+
+        if (lastActivityTimestamp && (Date.now() - lastActivityTimestamp > ACTIVITY_TIMEOUT_MS)) {
+            console.log('Activity timed out, clearing Discord activity');
+            await clearActivity();
+        }
+    }, MONITOR_POLL_MS);
+}
+
+function stopPlaybackMonitor() {
+    if (playbackMonitorInterval) {
+        clearInterval(playbackMonitorInterval);
+        playbackMonitorInterval = null;
     }
 }
 
@@ -235,6 +306,9 @@ async function updateRPC(data) {
         type: data.type
     };
 
+    // Track when activity was last set (for timeout detection)
+    lastActivityTimestamp = Date.now();
+
     if (rpcClient && isRpcConnected) {
         try {
             await rpcClient.setActivity(activity);
@@ -260,7 +334,7 @@ function startAddonServer() {
             name: "StremioRPC",
             description: "Sends Stremio information to Discord RPC.",
             catalogs: [],
-            resources: ["stream"],
+            resources: ["stream", "subtitles"],
             types: ["movie", "series"],
             idPrefixes: ["tt"]
         });
@@ -275,7 +349,18 @@ function startAddonServer() {
             // Trigger update in RPC
             updateRPC(info);
 
-            return Promise.resolve({ streams: [] });
+            return Promise.resolve({ streams: [], cacheMaxAge: 0 });
+        });
+
+        builder.defineSubtitlesHandler(async (args) => {
+            const info = {
+                id: args.id,
+                type: args.type,
+                timestamp: Date.now()
+            };
+
+            updateRPC(info);
+            return Promise.resolve({ subtitles: [], cacheMaxAge: 0 });
         });
 
         const addonInterface = builder.getInterface();
@@ -401,11 +486,19 @@ if (!gotTheLock) {
         // Start addon server
         startAddonServer();
 
+        // Start playback monitor (detects when Stremio closes)
+        startPlaybackMonitor();
+
         // Create UI and system tray
         createTray();
         createWindow();
     });
 }
+
+app.on('before-quit', async () => {
+    stopPlaybackMonitor();
+    await clearActivity();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
